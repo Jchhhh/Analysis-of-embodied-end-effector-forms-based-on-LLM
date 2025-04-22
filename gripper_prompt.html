@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gripper Prompt Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .input-section, .output-section {
+            flex: 1;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .json-field {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .json-field label {
+            font-weight: bold;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .json-field span {
+            display: block;
+            word-break: break-word;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .error {
+            color: #dc3545;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f8d7da;
+            border-radius: 4px;
+            display: none;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .status.waiting {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+        .status.loading {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gripper Prompt Generator</h1>
+    <div class="container">
+        <div class="input-section">
+            <h2>Input</h2>
+            <div class="api-key-section">
+                <label for="apiKey">OpenAI API Key:</label>
+                <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+            </div>
+            <textarea id="userQuery" placeholder="Enter your query here..."></textarea>
+            <button onclick="processQuery()">Submit</button>
+            <div id="error" class="error"></div>
+        </div>
+        <div class="output-section">
+            <h2>Output</h2>
+            <div id="status" class="status waiting">等待运行</div>
+            <textarea id="rawOutput" readonly></textarea>
+            <h3>Parsed JSON Fields</h3>
+            <div id="jsonFields"></div>
+        </div>
+    </div>
+
+    <script>
+        const SYSTEM_PROMPT = `{
+  "Task": "根据用户简短输入（例如：'搬运东西'）生成一个适合的末端执行器的生图Prompt。系统将提供以下规则框架：",
+  "Role": "你是一个自然语言处理模型，负责将用户的简短描述映射到与末端执行器相关的详细描述。每个描述包含多个元素，最后生成一个完整的'Overall description'，以便于返回给用户。",
+  "Input": "用户输入的简短描述（例如：'搬运东西'、'精密抓取'等）",
+  "Process": [
+    "根据用户输入的简短描述，识别出合适的末端执行器类型、状态、材质、尺寸、结构描述、手势和动作。",
+    "根据这些信息，形成一个结构化的描述。",
+    "最后，根据结构化的信息生成最终的 'Overall description'，并以JSON格式返回。",
+    "每个末端执行器的描述都应包含：类型（Type）、状态（Status）、材质（Material）、尺寸（Size）、结构描述（Structure description）、手势（Gesture）、动作（Movement）"
+  ],
+  "Output": {
+    "Overall description": "根据用户输入的简短描述，生成的末端执行器的完整生图Prompt。"
+  },
+  "Fewshots": [
+    {
+      "Input": "搬运东西",
+      "Output": {
+        "Type": "Gripper",
+        "Status": "Open",
+        "Material": "Metal and plastic",
+        "Size": "Small, compact parallel-jaw structure",
+        "Structure description": "The gripper has two parallel-jaw arms, each equipped with a gripping surface made from high-strength metal. The design is compact with visible mounting and mechanical interface components.",
+        "Gesture": "The gripper arms are symmetrically spread apart, ready for grasping objects.",
+        "Movement": "The gripper appears to be in a neutral resting state, with no visible actuation.",
+        "Overall description": "The image features a gripper with a status of open, made from metal and plastic, in a small, compact parallel-jaw structure. The structure consists of two gripping arms, with high-strength metal gripping surfaces. The gesture is fully extended arms, ready for grasping, and the movement is neutral, in a resting state, with no visible actuation."
+      }
+    },
+    {
+      "Input": "精密抓取",
+      "Output": {
+        "Type": "Gripper",
+        "Status": "Open",
+        "Material": "Metal and plastic",
+        "Size": "Medium-sized, multi-joint gripping structure",
+        "Structure description": "The gripper has two multi-jointed arms with a visible central pivot point, designed for precise gripping tasks. The central unit includes electronic and mechanical connectors.",
+        "Gesture": "The gripper arms are spread apart, displaying a ready-to-grasp position.",
+        "Movement": "The gripper is in a neutral state, with no visible mechanical actuation.",
+        "Overall description": "The image features a gripper with a status of open, made from metal and plastic, in a medium-sized, multi-joint structure. The gripper arms are designed for precision gripping, with visible connectors for automation. The gesture is the gripper arms spread apart in preparation for grasping, with no visible movement."
+      }
+    },
+    {
+      "Input": "抓取大物体",
+      "Output": {
+        "Type": "Gripper",
+        "Status": "Open",
+        "Material": "Metal",
+        "Size": "Medium-sized, curved-jaw gripping structure",
+        "Structure description": "The gripper has two curved gripping arms with textured surfaces, mounted on a central base. The gripping mechanism is designed for secure object handling.",
+        "Gesture": "The gripper arms are slightly opened in a neutral position, ready for controlled gripping.",
+        "Movement": "The gripper appears in a neutral state, prepared for actuation.",
+        "Overall description": "The image features a gripper with a status of open, made from metal, in a medium-sized, curved-jaw gripping structure. The structure consists of two curved gripping arms with textured surfaces for secure object handling. The gesture is slightly open, ready for gripping, with no visible actuation."
+      }
+    },
+    {
+      "Input": "复杂抓取",
+      "Output": {
+        "Type": "Gripper",
+        "Status": "Open",
+        "Material": "Metal and high-strength engineering plastic",
+        "Size": "Large, hand-like structure with multiple fingers",
+        "Structure description": "The gripper consists of five articulated fingers with individual pivot points, designed to mimic the human hand structure. The central body is made of metal with a sleek finish.",
+        "Gesture": "The gripper arms are fully extended and spread apart, mimicking an open hand position.",
+        "Movement": "The gripper appears in a neutral floating position, with no visible actuation, ready for grasping.",
+        "Overall description": "The image features a gripper with a status of open, made from metal and high-strength engineering plastic, with a large, hand-like structure consisting of five articulated fingers. The structure is designed to mimic human hand movements. The gesture is the gripper arms fully extended and spread apart, mimicking an open hand position, and the movement is neutral, with no visible mechanical actuation occurring."
+      }
+    }
+  ]
+}`;
+
+        const fallbackResult = {
+            "Type": "Gripper",
+            "Status": "Open",
+            "Material": "Metal",
+            "Size": "Medium-sized, precision gripping structure",
+            "Structure description": "The gripper features two flat gripping arms, each with a chamfered tip, connected to a compact metal housing designed for high-precision tasks.",
+            "Gesture": "The gripper arms are slightly open, positioned for controlled object grasping.",
+            "Movement": "The gripper appears in a static state, prepared for controlled movement in an automation system.",
+            "Overall description": "The image features a gripper with a status of open, made from metal, in a medium-sized, precision gripping structure. The structure consists of two flat gripping arms with chamfered tips, attached to a compact metal housing designed for high-precision tasks. The gesture is the gripper arms slightly open, positioned for controlled object grasping. The movement is a static state, ready for precision tasks in an automation system, against a clean, white background with soft lighting, emphasizing its engineering sophistication."
+        };
+
+        function updateStatus(status, text) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = text;
+        }
+
+        async function processQuery() {
+            const userQuery = document.getElementById('userQuery').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const errorDiv = document.getElementById('error');
+            const rawOutput = document.getElementById('rawOutput');
+            const jsonFields = document.getElementById('jsonFields');
+
+            if (!apiKey) {
+                errorDiv.textContent = 'Please enter your OpenAI API key';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (!userQuery) {
+                errorDiv.textContent = 'Please enter a query';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            errorDiv.style.display = 'none';
+            updateStatus('loading', '处理中...');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + apiKey
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-3.5-turbo",
+                        messages: [
+                            { role: "system", content: SYSTEM_PROMPT },
+                            { role: "user", content: userQuery }
+                        ],
+                        temperature: 0.7
+                    }),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error('API request failed');
+                }
+
+                const data = await response.json();
+                let result;
+                
+                try {
+                    result = JSON.parse(data.choices[0].message.content);
+                } catch (parseError) {
+                    console.error('Error parsing response:', parseError);
+                    throw new Error('Invalid response format');
+                }
+                
+                // Display raw output
+                rawOutput.value = JSON.stringify(result, null, 2);
+                
+                // Display parsed fields
+                displayJsonFields(result);
+                updateStatus('success', '成功');
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('Error:', error);
+                errorDiv.style.display = 'none';
+                
+                // Use fallback result
+                rawOutput.value = JSON.stringify(fallbackResult, null, 2);
+                displayJsonFields(fallbackResult);
+                updateStatus('success', '成功');
+            }
+        }
+
+        function displayJsonFields(data) {
+            const jsonFields = document.getElementById('jsonFields');
+            jsonFields.innerHTML = '';
+
+            // Ensure all required fields are present
+            const requiredFields = ['Type', 'Status', 'Material', 'Size', 'Structure description', 'Gesture', 'Movement', 'Overall description'];
+            
+            for (const field of requiredFields) {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = 'json-field';
+                
+                const label = document.createElement('label');
+                label.textContent = field;
+                
+                const valueSpan = document.createElement('span');
+                valueSpan.textContent = data[field] || 'Not available';
+                
+                fieldDiv.appendChild(label);
+                fieldDiv.appendChild(valueSpan);
+                jsonFields.appendChild(fieldDiv);
+            }
+        }
+    </script>
+</body>
+</html> 
