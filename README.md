@@ -3,3 +3,10 @@ This study proposes an end-to-end system combining LLMs and generative AI to con
 
 ## Environment Configuration
 ### Robosuite Setup
+1. Install robosuite with required dependencies  
+pip install robosuite==1.4.0  
+2. Install PyTorch (CUDA-enabled version recommended)  
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118  
+3. Clone and set up ComfyUI for generative workflows  
+git clone https://github.com/comfyanonymous/ComfyUI.git  
+cd ComfyUI && pip install -r requirements.txt  
