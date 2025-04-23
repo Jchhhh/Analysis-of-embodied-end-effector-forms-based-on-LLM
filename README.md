@@ -60,24 +60,6 @@ export COMFYUI_MODEL_PATH="/path/to/models"  # Directory containing all models
 - **Training**: Fine-tune on custom datasets or use pre-trained models (e.g., ModelNet40) for transfer learning.  
 
 
-## Recommended Directory Structure  
-```  
-comfyui_models/  
-├── unet/                # Diffusion model components  
-│   └── flux_dev.safetensors  
-├── clip/                # Encoder models  
-│   ├── t5xxl_fp8_e4m3fn_scaled.safetensors  
-│   └── clip_I_flux.safetensors  
-├── vae/                 # VAE for image reconstruction  
-│   └── ae.safetensors  
-├── lora/                # LoRA adapters (custom-trained)  
-│   └── Flux/  
-│       └── Digital_Impressionist.safetensors  
-├── upscalers/           # Super-resolution models  
-│   └── 4x_foolhardy_Remacri.pth  
-└── tripo/               # 3D generation models  
-    └── v2.5–20250123.safetensors  
-```  
 
 
 ## Running the System  
